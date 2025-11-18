@@ -14,7 +14,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx prisma/seed-expanded.ts",
+    "db:seed:simple": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "test": "jest",
@@ -31,7 +32,8 @@
     "date-fns": "^4.1.0",
     "zod": "^3.23.8",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.460.0"
+    "lucide-react": "^0.460.0",
+    "commander": "^12.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.6",
