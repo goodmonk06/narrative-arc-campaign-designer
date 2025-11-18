@@ -1,0 +1,19 @@
+node_modules
+.next
+out
+dist
+build
+coverage
+.turbo
+.vercel
+*.log
+.DS_Store
+*.pem
+
+# Prisma
+prisma/migrations
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
