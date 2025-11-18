@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model NarrativeArc {
+  id                  String              @id @default(cuid())
+  communityId         String
+  key                 String              @unique
+  title               String
+  theme               String?
+  descriptionMarkdown String?
+  horizonStart        DateTime
+  horizonEnd          DateTime
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  beats               NarrativeBeat[]
+  attachments         CampaignAttachment[]
+
+  @@index([communityId])
+  @@index([key])
+}
+
+model NarrativeBeat {
+  id                      String       @id @default(cuid())
+  arcId                   String
+  orderIndex              Int
+  title                   String
+  descriptionMarkdown     String?
+  targetMonth             String       // Format: "YYYY-MM"
+  tagsJson                String?      // JSON array of strings
+  linkedRitualTemplateId  String?
+  linkedCampaignId        String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  arc                     NarrativeArc @relation(fields: [arcId], references: [id], onDelete: Cascade)
+
+  @@unique([arcId, orderIndex])
+  @@index([arcId])
+  @@index([targetMonth])
+}
+
+model CampaignAttachment {
+  id                  String       @id @default(cuid())
+  arcId               String
+  externalSystem      String       // 'ritual-event-orchestrator' | 'content-calendar' | 'other'
+  externalRef         String       // Reference ID in the external system
+  descriptionMarkdown String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  arc                 NarrativeArc @relation(fields: [arcId], references: [id], onDelete: Cascade)
+
+  @@index([arcId])
+  @@index([externalSystem])
+}
