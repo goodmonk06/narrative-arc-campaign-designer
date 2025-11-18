@@ -19,34 +19,60 @@ model NarrativeArc {
   descriptionMarkdown String?
   horizonStart        DateTime
   horizonEnd          DateTime
+  status              ArcStatus           @default(DRAFT)
+  createdBy           String?             // User ID who created the arc
+  metadataJson        String?             // Additional flexible metadata
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
   beats               NarrativeBeat[]
   attachments         CampaignAttachment[]
+  metrics             ArcMetrics[]
+  sourceTemplate      ArcTemplate?        @relation("InstantiatedArcs", fields: [templateId], references: [id])
+  templateId          String?
 
   @@index([communityId])
   @@index([key])
+  @@index([status])
+  @@index([templateId])
+}
+
+enum ArcStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
 }
 
 model NarrativeBeat {
-  id                      String       @id @default(cuid())
+  id                      String          @id @default(cuid())
   arcId                   String
   orderIndex              Int
   title                   String
   descriptionMarkdown     String?
-  targetMonth             String       // Format: "YYYY-MM"
-  tagsJson                String?      // JSON array of strings
+  targetMonth             String          // Format: "YYYY-MM"
+  status                  BeatStatus      @default(PENDING)
   linkedRitualTemplateId  String?
   linkedCampaignId        String?
-  createdAt               DateTime     @default(now())
-  updatedAt               DateTime     @updatedAt
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
 
-  arc                     NarrativeArc @relation(fields: [arcId], references: [id], onDelete: Cascade)
+  arc                     NarrativeArc    @relation(fields: [arcId], references: [id], onDelete: Cascade)
+  tags                    BeatTag[]
+  comments                BeatComment[]
+  history                 BeatHistory[]
 
   @@unique([arcId, orderIndex])
   @@index([arcId])
   @@index([targetMonth])
+  @@index([status])
+}
+
+enum BeatStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
 }
 
 model CampaignAttachment {
@@ -62,4 +88,141 @@ model CampaignAttachment {
 
   @@index([arcId])
   @@index([externalSystem])
+}
+
+// NEW ENTITIES FOR PHASE 3
+
+model ArcTemplate {
+  id                  String              @id @default(cuid())
+  key                 String              @unique
+  name                String
+  description         String?
+  category            String              // e.g., 'growth', 'wellness', 'education'
+  visibility          TemplateVisibility  @default(PRIVATE)
+  durationMonths      Int                 // Suggested duration
+  metadataJson        String?             // Template-specific metadata
+  createdBy           String?             // User ID
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  templateBeats       TemplateBeat[]
+  instantiatedArcs    NarrativeArc[]      @relation("InstantiatedArcs")
+
+  @@index([category])
+  @@index([visibility])
+  @@index([createdBy])
+}
+
+enum TemplateVisibility {
+  PRIVATE
+  COMMUNITY
+  PUBLIC
+}
+
+model TemplateBeat {
+  id                  String          @id @default(cuid())
+  templateId          String
+  orderIndex          Int
+  title               String
+  descriptionMarkdown String?
+  suggestedMonth      Int             // Relative month (0-based)
+  defaultTags         String?         // JSON array of tag names
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  template            ArcTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, orderIndex])
+  @@index([templateId])
+}
+
+model Tag {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  category    String?     // e.g., 'theme', 'milestone', 'audience'
+  description String?
+  color       String?     // Hex color for UI
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  beats       BeatTag[]
+
+  @@index([category])
+}
+
+model BeatTag {
+  beatId      String
+  tagId       String
+  createdAt   DateTime        @default(now())
+
+  beat        NarrativeBeat   @relation(fields: [beatId], references: [id], onDelete: Cascade)
+  tag         Tag             @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([beatId, tagId])
+  @@index([beatId])
+  @@index([tagId])
+}
+
+model BeatComment {
+  id          String          @id @default(cuid())
+  beatId      String
+  userId      String          // User ID who created the comment
+  content     String
+  type        CommentType     @default(FEEDBACK)
+  resolved    Boolean         @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?         // User ID who resolved
+  parentId    String?         // For threaded comments
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  beat        NarrativeBeat   @relation(fields: [beatId], references: [id], onDelete: Cascade)
+  parent      BeatComment?    @relation("CommentThread", fields: [parentId], references: [id])
+  replies     BeatComment[]   @relation("CommentThread")
+
+  @@index([beatId])
+  @@index([userId])
+  @@index([resolved])
+  @@index([parentId])
+}
+
+enum CommentType {
+  FEEDBACK
+  QUESTION
+  APPROVAL
+  SUGGESTION
+}
+
+model BeatHistory {
+  id          String          @id @default(cuid())
+  beatId      String
+  version     Int
+  changes     String          // JSON of changes
+  changedBy   String          // User ID
+  timestamp   DateTime        @default(now())
+
+  beat        NarrativeBeat   @relation(fields: [beatId], references: [id], onDelete: Cascade)
+
+  @@unique([beatId, version])
+  @@index([beatId])
+  @@index([changedBy])
+}
+
+model ArcMetrics {
+  id                      String       @id @default(cuid())
+  arcId                   String
+  periodStart             DateTime
+  periodEnd               DateTime
+  viewCount               Int          @default(0)
+  beatCompletionRate      Float        @default(0.0) // Percentage
+  memberEngagement        Int          @default(0)
+  commentCount            Int          @default(0)
+  metricsJson             String?      // Additional flexible metrics
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  arc                     NarrativeArc @relation(fields: [arcId], references: [id], onDelete: Cascade)
+
+  @@index([arcId])
+  @@index([periodStart])
 }
